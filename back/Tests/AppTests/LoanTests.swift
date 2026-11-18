@@ -2,6 +2,9 @@
 import XCTVapor
 
 final class LoanTests: XCTestCase {
+    
+    private let oneDay: TimeInterval = 24 * 3600
+    
     private func borrow(
         _ app: Application,
         gameID: UUID,
@@ -160,6 +163,55 @@ final class LoanTests: XCTestCase {
             try await borrow(app, gameID: loan.gameID, memberID: loan.memberID) { res in
                 XCTAssertEqual(res.status, .created)
             }
+        }
+    }
+    
+    func testOverdueLoansListsLateUnreturnedLoans() async throws {
+        try await withApp { app in
+            let game = try await createGame(app)
+            let member = try await createMember(app)
+            let gameID = try XCTUnwrap(game.id)
+            let memberID = try XCTUnwrap(member.id)
+
+            let twentyDaysAgo = Date(timeIntervalSinceNow: -20 * oneDay)
+            let sixDaysAgo = Date(timeIntervalSinceNow: -6 * oneDay)
+
+            try await insertLoan(app, gameID: gameID, memberID: memberID, borrowedAt: twentyDaysAgo, dueAt: sixDaysAgo)
+
+            try await app.test(.GET, "loans/overdue", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                XCTAssertEqual(try res.content.decode([LoanDTO].self).count, 1)
+            })
+        }
+    }
+
+    func testReturnedLoanIsNeverOverdue() async throws {
+        try await withApp { app in
+            let game = try await createGame(app)
+            let member = try await createMember(app)
+            let gameID = try XCTUnwrap(game.id)
+            let memberID = try XCTUnwrap(member.id)
+
+            let twentyDaysAgo = Date(timeIntervalSinceNow: -20 * oneDay)
+            let sixDaysAgo = Date(timeIntervalSinceNow: -6 * oneDay)
+
+            try await insertLoan(app, gameID: gameID, memberID: memberID, borrowedAt: twentyDaysAgo, dueAt: sixDaysAgo, returnedAt: Date())
+
+            try await app.test(.GET, "loans/overdue", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                XCTAssertEqual(try res.content.decode([LoanDTO].self).count, 0)
+            })
+        }
+    }
+
+    func testLoanNotYetDueIsNotOverdue() async throws {
+        try await withApp { app in
+            _ = try await createLoan(app)
+
+            try await app.test(.GET, "loans/overdue", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                XCTAssertEqual(try res.content.decode([LoanDTO].self).count, 0)
+            })
         }
     }
 }
