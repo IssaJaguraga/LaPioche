@@ -142,9 +142,48 @@ final class MemberTests: XCTestCase {
             let member = try await createMember(app)
             let gameID = try XCTUnwrap(game.id)
             let memberID = try XCTUnwrap(member.id)
-            try await insertLoan(app,gameID: gameID, memberID: memberID, borrowedAt: Date(), dueAt: Date(), returnedAt: Date())
+            try await insertLoan(app, gameID: gameID, memberID: memberID, borrowedAt: Date(), dueAt: Date(), returnedAt: Date())
             try await app.test(.DELETE, "members/\(memberID)", afterResponse: { res async throws in
                 XCTAssertEqual(res.status, .conflict)
+            })
+        }
+    }
+    
+    func testListMemberLoansReturnsAllLoans() async throws {
+        try await withApp { app in
+            let game = try await createGame(app)
+            let member = try await createMember(app)
+            let gameID = try XCTUnwrap(game.id)
+            let memberID = try XCTUnwrap(member.id)
+
+            try await insertLoan(app, gameID: gameID, memberID: memberID,
+                                 borrowedAt: Date(), dueAt: Date(), returnedAt: Date())
+            try await insertLoan(app, gameID: gameID, memberID: memberID,
+                                 borrowedAt: Date(), dueAt: Date())
+
+            try await app.test(.GET, "members/\(memberID)/loans", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                XCTAssertEqual(try res.content.decode([LoanDTO].self).count, 2)
+            })
+        }
+    }
+
+    func testListMemberLoansWithNoLoanReturnsEmptyList() async throws {
+        try await withApp { app in
+            let member = try await createMember(app)
+            let id = try XCTUnwrap(member.id)
+
+            try await app.test(.GET, "members/\(id)/loans", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                XCTAssertEqual(try res.content.decode([LoanDTO].self).count, 0)
+            })
+        }
+    }
+
+    func testListLoansOfUnknownMemberReturnsNotFound() async throws {
+        try await withApp { app in
+            try await app.test(.GET, "members/\(UUID())/loans", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .notFound)
             })
         }
     }
