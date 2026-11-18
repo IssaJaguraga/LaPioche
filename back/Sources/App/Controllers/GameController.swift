@@ -31,6 +31,9 @@ struct GameController: RouteCollection {
         if let maxDuration = search.maxDuration {
             games = games.filter { $0.durationMinutes <= maxDuration }
         }
+        if let available = search.available {
+            games = games.filter { $0.isAvailable == available }
+        }
 
         return games.map { $0.toDTO() }
     }

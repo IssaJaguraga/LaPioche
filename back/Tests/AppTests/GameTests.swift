@@ -268,4 +268,67 @@ final class GameTests: XCTestCase {
             })
         }
     }
+    
+    func testFilterAvailableGamesOnly() async throws {
+        try await withApp { app in
+            let catan = try await createGame(app, title: "Catan")
+            _ = try await createGame(app, title: "Dixit")
+            let member = try await createMember(app)
+            let catanID = try XCTUnwrap(catan.id)
+            let memberID = try XCTUnwrap(member.id)
+
+            try await insertLoan(app, gameID: catanID, memberID: memberID, borrowedAt: Date(), dueAt: Date())
+
+            try await app.test(.GET, "games?available=true", afterResponse: { res async throws in
+                let games = try res.content.decode([GameDTO].self)
+                XCTAssertEqual(games.count, 1)
+                XCTAssertEqual(games.first?.title, "Dixit")
+            })
+        }
+    }
+
+    func testFilterBorrowedGamesOnly() async throws {
+        try await withApp { app in
+            let catan = try await createGame(app, title: "Catan")
+            _ = try await createGame(app, title: "Dixit")
+            let member = try await createMember(app)
+            let catanID = try XCTUnwrap(catan.id)
+            let memberID = try XCTUnwrap(member.id)
+
+            try await insertLoan(app, gameID: catanID, memberID: memberID, borrowedAt: Date(), dueAt: Date())
+
+            try await app.test(.GET, "games?available=false", afterResponse: { res async throws in
+                let games = try res.content.decode([GameDTO].self)
+                XCTAssertEqual(games.count, 1)
+                XCTAssertEqual(games.first?.title, "Catan")
+            })
+        }
+    }
+
+    func testAvailableFilterIsCombinedWithSearch() async throws {
+        try await withApp { app in
+            let catan = try await createGame(app, title: "Catan", durationMinutes: 90)
+            _ = try await createGame(app, title: "Dixit", durationMinutes: 30)
+            _ = try await createGame(app, title: "Azul", durationMinutes: 45)
+            let member = try await createMember(app)
+            let catanID = try XCTUnwrap(catan.id)
+            let memberID = try XCTUnwrap(member.id)
+
+            try await insertLoan(app, gameID: catanID, memberID: memberID, borrowedAt: Date(), dueAt: Date())
+
+            try await app.test(.GET, "games?available=true&maxDuration=40", afterResponse: { res async throws in
+                let games = try res.content.decode([GameDTO].self)
+                XCTAssertEqual(games.count, 1)
+                XCTAssertEqual(games.first?.title, "Dixit")
+            })
+        }
+    }
+
+    func testAvailableFilterWithInvalidValueIsRejected() async throws {
+        try await withApp { app in
+            try await app.test(.GET, "games?available=maybe", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .badRequest)
+            })
+        }
+    }
 }
