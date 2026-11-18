@@ -6,9 +6,11 @@ struct GameController: RouteCollection {
         let games = routes.grouped("games")
         games.get(use: index)
         games.post(use: create)
-        games.get(":gameID", use: show)
-        games.put(":gameID", use: update)
-        games.delete(":gameID", use: delete)
+        
+        let game = games.grouped(":gameID")
+        game.get(use: show)
+        game.put(use: update)
+        game.delete(use: delete)
     }
 
     @Sendable

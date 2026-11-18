@@ -6,9 +6,11 @@ struct MemberController: RouteCollection {
         let members = routes.grouped("members")
         members.get(use: index)
         members.post(use: create)
-        members.get(":memberID", use: show)
-        members.put(":memberID", use: update)
-        members.delete(":memberID", use: delete)
+        
+        let member = members.grouped(":memberID")
+        member.get(use: show)
+        member.put(use: update)
+        member.delete(use: delete)
     }
     
     @Sendable
