@@ -105,4 +105,60 @@ final class GameTests: XCTestCase {
             })
         }
     }
+    
+    func testUpdateGameReturnsUpdatedGame() async throws {
+        try await withApp { app in
+            let game = try await createGame(app)
+            let id = try XCTUnwrap(game.id)
+
+            try await app.test(.PUT, "games/\(id)", beforeRequest: { req in
+                try req.content.encode(CreateGameDTO(
+                    title: "Catan 2", minPlayers: 2, maxPlayers: 5, durationMinutes: 60
+                ))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                let updated = try res.content.decode(GameDTO.self)
+                XCTAssertEqual(updated.title, "Catan 2")
+            })
+        }
+    }
+    
+    func testUpdateUnknownGameReturnsNotFound() async throws {
+        try await withApp { app in
+            try await app.test(.PUT, "games/\(UUID())", beforeRequest: { req in
+                try req.content.encode(CreateGameDTO(
+                    title: "Catan", minPlayers: 3, maxPlayers: 4, durationMinutes: 90
+                ))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .notFound)
+            })
+        }
+    }
+    
+    func testUpdateGameWithMalformedIDReturnsBadRequest() async throws {
+        try await withApp { app in
+            try await app.test(.PUT, "games/not-a-uuid", beforeRequest: { req in
+                try req.content.encode(CreateGameDTO(
+                    title: "Catan", minPlayers: 3, maxPlayers: 4, durationMinutes: 90
+                ))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .badRequest)
+            })
+        }
+    }
+    
+    func testUpdateGameWithInvertedPlayerBoundsIsRejected() async throws {
+        try await withApp { app in
+            let game = try await createGame(app)
+            let id = try XCTUnwrap(game.id)
+
+            try await app.test(.PUT, "games/\(id)", beforeRequest: { req in
+                try req.content.encode(CreateGameDTO(
+                    title: "Catan 2", minPlayers: 5, maxPlayers: 2, durationMinutes: 60
+                ))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .badRequest)
+            })
+        }
+    }
 }
