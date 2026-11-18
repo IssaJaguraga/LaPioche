@@ -12,6 +12,17 @@ final class LoanTests: XCTestCase {
             try req.content.encode(CreateLoanDTO(gameID: gameID, memberID: memberID))
         }, afterResponse: afterResponse)
     }
+    
+    private func createLoan(_ app: Application) async throws -> LoanDTO {
+        let game = try await createGame(app)
+        let member = try await createMember(app)
+
+        var loan: LoanDTO?
+        try await borrow(app, gameID: try XCTUnwrap(game.id), memberID: try XCTUnwrap(member.id)) { res in
+            loan = try res.content.decode(LoanDTO.self)
+        }
+        return try XCTUnwrap(loan)
+    }
 
     func testBorrowGameReturnsCreated() async throws {
         try await withApp { app in
@@ -91,6 +102,63 @@ final class LoanTests: XCTestCase {
 
             try await borrow(app, gameID: try XCTUnwrap(game.id), memberID: UUID()) { res in
                 XCTAssertEqual(res.status, .notFound)
+            }
+        }
+    }
+    
+    func testReturnLoanReturnsUpdatedLoan() async throws {
+        try await withApp { app in
+            let loan = try await createLoan(app)
+            let id = try XCTUnwrap(loan.id)
+
+            try await app.test(.POST, "loans/\(id)/return", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                XCTAssertNotNil(try res.content.decode(LoanDTO.self).returnedAt)
+            })
+        }
+    }
+    
+    func testReturnUnknownLoanReturnsNotFound() async throws {
+        try await withApp { app in
+            try await app.test(.POST, "loans/\(UUID())/return", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .notFound)
+            })
+        }
+    }
+
+    func testReturnLoanWithMalformedIDReturnsBadRequest() async throws {
+        try await withApp { app in
+            try await app.test(.POST, "loans/not-a-uuid/return", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .badRequest)
+            })
+        }
+    }
+    
+    func testReturningAnAlreadyReturnedLoanReturnsConflict() async throws {
+        try await withApp { app in
+            let loan = try await createLoan(app)
+            let id = try XCTUnwrap(loan.id)
+
+            try await app.test(.POST, "loans/\(id)/return", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+            })
+            try await app.test(.POST, "loans/\(id)/return", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .conflict)
+            })
+        }
+    }
+    
+    func testReturnedGameCanBeBorrowedAgain() async throws {
+        try await withApp { app in
+            let loan = try await createLoan(app)
+            let id = try XCTUnwrap(loan.id)
+
+            try await app.test(.POST, "loans/\(id)/return", afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+            })
+
+            try await borrow(app, gameID: loan.gameID, memberID: loan.memberID) { res in
+                XCTAssertEqual(res.status, .created)
             }
         }
     }
