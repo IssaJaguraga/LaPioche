@@ -42,4 +42,78 @@ final class MemberTests: XCTestCase {
             })
         }
     }
+    
+    func testUpdateMemberReturnsUpdatedMember() async throws {
+        try await withApp { app in
+            let member = try await createMember(app)
+            let id = try XCTUnwrap(member.id)
+
+            try await app.test(.PUT, "members/\(id)", beforeRequest: { req in
+                try req.content.encode(CreateMemberDTO(name: "Camille Martin", email: "camille.martin@example.com"))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+                XCTAssertEqual(try res.content.decode(MemberDTO.self).name, "Camille Martin")
+            })
+        }
+    }
+    
+    func testUpdateUnknownMemberReturnsNotFound() async throws {
+        try await withApp { app in
+            try await app.test(.PUT, "members/\(UUID())", beforeRequest: { req in
+                try req.content.encode(CreateMemberDTO(name: "Camille", email: "camille@example.com"))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .notFound)
+            })
+        }
+    }
+    
+    func testUpdateMemberWithMalformedIDReturnsBadRequest() async throws {
+        try await withApp { app in
+            try await app.test(.PUT, "members/not-a-uuid", beforeRequest: { req in
+                try req.content.encode(CreateMemberDTO(name: "Camille", email: "camille@example.com"))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .badRequest)
+            })
+        }
+    }
+    
+    func testUpdateMemberKeepingOwnEmailSucceeds() async throws {
+        try await withApp { app in
+            let member = try await createMember(app)
+            let id = try XCTUnwrap(member.id)
+
+            try await app.test(.PUT, "members/\(id)", beforeRequest: { req in
+                try req.content.encode(CreateMemberDTO(name: "Camille Martin", email: "camille@example.com"))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .ok)
+            })
+        }
+    }
+    
+    func testUpdateMemberWithEmailOfAnotherMemberReturnsConflict() async throws {
+        try await withApp { app in
+            _ = try await createMember(app)
+            let alex = try await createMember(app, name: "Alex", email: "alex@example.com")
+            let alexID = try XCTUnwrap(alex.id)
+
+            try await app.test(.PUT, "members/\(alexID)", beforeRequest: { req in
+                try req.content.encode(CreateMemberDTO(name: "Alex", email: "camille@example.com"))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .conflict)
+            })
+        }
+    }
+    
+    func testUpdateMemberWithInvalidEmailIsRejected() async throws {
+        try await withApp { app in
+            let member = try await createMember(app)
+            let id = try XCTUnwrap(member.id)
+
+            try await app.test(.PUT, "members/\(id)", beforeRequest: { req in
+                try req.content.encode(CreateMemberDTO(name: "Camille Martin", email: "not-an-email"))
+            }, afterResponse: { res async throws in
+                XCTAssertEqual(res.status, .badRequest)
+            })
+        }
+    }
 }
