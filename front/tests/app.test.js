@@ -193,3 +193,35 @@ test("an email used by another member is shown in French when editing", async ()
   await waitFor(() => !app.$("#member-dialog .form-error").hidden, "le message d'erreur");
   assertEqual(app.$("#member-dialog .form-error").textContent, "Un·e autre adhérent·e utilise déjà cette adresse e-mail.");
 });
+
+test("member loans show the game title and the three states", async () => {
+  const past = "2020-01-01T00:00:00Z";
+  const future = "2999-01-01T00:00:00Z";
+  const app = await mountApp(
+    {
+      "GET /members": [camille],
+      "GET /games": [catan],
+      "GET /members/m1/loans": [
+        { id: "l1", gameID: "g1", borrowedAt: past, dueAt: past, returnedAt: past },
+        { id: "l2", gameID: "g1", borrowedAt: past, dueAt: past },
+        { id: "l3", gameID: "g1", borrowedAt: past, dueAt: future },
+      ],
+    },
+    { hash: "#members" },
+  );
+  await waitFor(() => app.$$("#members-list .row").length === 1);
+  app.click("Emprunts", app.$("#members-list .row"));
+  await waitFor(() => app.$$("#loans-list .row").length === 3, "les trois emprunts");
+  const text = app.$("#loans-list").textContent;
+  assertIncludes(text, "Catan");
+  assertIncludes(text, "Rendu");
+  assertIncludes(text, "En retard");
+  assertIncludes(text, "En cours");
+});
+
+test("a member without loans shows a clear message", async () => {
+  const app = await mountApp({ "GET /members": [camille], "GET /games": [], "GET /members/m1/loans": [] }, { hash: "#members" });
+  await waitFor(() => app.$$("#members-list .row").length === 1);
+  app.click("Emprunts", app.$("#members-list .row"));
+  await waitFor(() => !app.$("#loans-empty").hidden, "le message de liste vide");
+});

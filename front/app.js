@@ -232,6 +232,7 @@ function memberRow(member) {
     el(
       "div",
       { class: "actions" },
+      button("Emprunts", () => openLoansDialog(member)),
       button("Modifier", () => openEditMemberDialog(member)),
       button("Supprimer", () => openDeleteMemberDialog(member), "danger"),
     ),
@@ -279,5 +280,34 @@ function openDeleteMemberDialog(member) {
 }
 
 bindSubmit(deleteMemberDialog, deleteMemberForm, () => api.deleteMember(deletedMember.id));
+
+async function openLoansDialog(member) {
+  await run(async () => {
+    const loans = await api.listMemberLoans(member.id);
+    const games = await api.listGames();
+    $("#loans-title").textContent = `Emprunts de ${member.name}`;
+    $("#loans-empty").hidden = loans.length > 0;
+    $("#loans-list").replaceChildren(...loans.map((loan) => loanRow(loan, games)));
+    $("#loans-dialog").showModal();
+  });
+}
+
+function loanRow(loan, games) {
+  const game = games.find((game) => game.id === loan.gameID);
+  let status;
+  if (loan.returnedAt) {
+    status = el("span", { class: "badge ok" }, "Rendu");
+  } else if (new Date(loan.dueAt) < new Date()) {
+    status = el("span", { class: "badge late" }, "En retard");
+  } else {
+    status = el("span", { class: "badge busy" }, "En cours");
+  }
+  return el(
+    "li",
+    { class: "row" },
+    el("div", { class: "row-main" }, el("p", {}, el("strong", {}, game.title)), el("p", { class: "meta" }, `Emprunté le ${formatDate(loan.borrowedAt)} · retour prévu le ${formatDate(loan.dueAt)}`)),
+    status,
+  );
+}
 
 refresh();
