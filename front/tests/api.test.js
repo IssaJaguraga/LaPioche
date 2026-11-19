@@ -88,6 +88,12 @@ test("returnLoan calls POST on the loan return", async () => {
   assertEqual(`${calls[0].method} ${calls[0].path}`, "POST /loans/l1/return");
 });
 
+test("listOverdueLoans calls GET /loans/overdue", async () => {
+  const { fetch, calls } = fakeApi({ "GET /loans/overdue": [] });
+  await withFakeFetch(fetch, () => api.listOverdueLoans());
+  assertEqual(`${calls[0].method} ${calls[0].path}`, "GET /loans/overdue");
+});
+
 // --- erreurs
 
 // Attend qu'une promesse échoue et renvoie l'erreur (échoue si elle réussit).

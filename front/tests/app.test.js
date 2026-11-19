@@ -225,3 +225,27 @@ test("a member without loans shows a clear message", async () => {
   app.click("Emprunts", app.$("#members-list .row"));
   await waitFor(() => !app.$("#loans-empty").hidden, "le message de liste vide");
 });
+
+// --- Retards
+
+test("overdue loans show the game, the member and the days late", async () => {
+  const app = await mountApp(
+    {
+      "GET /loans/overdue": [{ id: "l1", gameID: "g1", memberID: "m1", dueAt: "2020-01-01T00:00:00Z" }],
+      "GET /games": [catan],
+      "GET /members": [camille],
+    },
+    { hash: "#overdue" },
+  );
+  await waitFor(() => app.$$("#overdue-list .row").length === 1, "l'emprunt en retard");
+  const text = app.$("#overdue-list").textContent;
+  assertIncludes(text, "Catan");
+  assertIncludes(text, "Camille");
+  assertIncludes(text, "En retard de");
+  await waitFor(() => app.$("#overdue-count").textContent === "1", "le compteur");
+});
+
+test("with no overdue loan, a message says so", async () => {
+  const app = await mountApp({ "GET /loans/overdue": [], "GET /games": [], "GET /members": [] }, { hash: "#overdue" });
+  await waitFor(() => !app.$("#overdue-empty").hidden, "le message aucun retard");
+});

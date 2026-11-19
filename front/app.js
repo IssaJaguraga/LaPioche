@@ -69,7 +69,7 @@ function bindSubmit(dialog, form, handler) {
 
 // --- Onglets ---------------------------------------------------------------
 
-const tabs = ["games", "members"];
+const tabs = ["games", "members", "overdue"];
 
 function currentTab() {
   const name = location.hash.slice(1);
@@ -82,7 +82,9 @@ async function refresh() {
     $(`#${name}`).hidden = name !== tab;
     $(`[data-tab="${name}"]`).toggleAttribute("aria-current", name === tab);
   }
-  await run(tab === "games" ? loadGames : loadMembers);
+  const loaders = { games: loadGames, members: loadMembers, overdue: loadOverdue };
+  await run(loaders[tab]);
+  await run(updateOverdueCount);
 }
 
 window.addEventListener("hashchange", refresh);
@@ -108,7 +110,6 @@ function gameCard(game) {
   } else {
     actions.append(button("Rendre", () => returnGame(game), "primary"));
   }
-  
   actions.append(
     button("Modifier", () => openEditGameDialog(game)),
     button("Supprimer", () => openDeleteGameDialog(game), "danger"),
@@ -307,6 +308,33 @@ function loanRow(loan, games) {
     { class: "row" },
     el("div", { class: "row-main" }, el("p", {}, el("strong", {}, game.title)), el("p", { class: "meta" }, `Emprunté le ${formatDate(loan.borrowedAt)} · retour prévu le ${formatDate(loan.dueAt)}`)),
     status,
+  );
+}
+
+// --- Retards ---------------------------------------------------------------
+
+async function updateOverdueCount() {
+  const loans = await api.listOverdueLoans();
+  $("#overdue-count").textContent = loans.length;
+}
+
+async function loadOverdue() {
+  const loans = await api.listOverdueLoans();
+  const games = await api.listGames();
+  const members = await api.listMembers();
+  $("#overdue-empty").hidden = loans.length > 0;
+  $("#overdue-list").replaceChildren(...loans.map((loan) => overdueRow(loan, games, members)));
+}
+
+function overdueRow(loan, games, members) {
+  const game = games.find((game) => game.id === loan.gameID);
+  const member = members.find((member) => member.id === loan.memberID);
+  const days = Math.ceil((Date.now() - new Date(loan.dueAt)) / (24 * 3600 * 1000));
+  return el(
+    "li",
+    { class: "row late" },
+    el("div", { class: "row-main" }, el("p", {}, el("strong", {}, game.title), ` · ${member.name}`), el("p", { class: "meta" }, `Retour prévu le ${formatDate(loan.dueAt)}`)),
+    el("span", { class: "badge late" }, `En retard de ${days} jour(s)`),
   );
 }
 
