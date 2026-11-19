@@ -107,7 +107,10 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  listGames: () => request("GET", "/games"),
+  listGames: (filters = {}) => {
+    const params = new URLSearchParams(filters).toString();
+    return request("GET", params ? `/games?${params}` : "/games");
+  },
   createGame: (game) => request("POST", "/games", game),
   updateGame: (id, game) => request("PUT", `/games/${id}`, game),
   deleteGame: (id) => request("DELETE", `/games/${id}`),

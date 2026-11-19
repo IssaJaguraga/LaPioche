@@ -83,6 +83,20 @@ test("a refused deletion is shown in French", async () => {
   assertEqual(app.$("#delete-game-dialog .form-error").textContent, "Suppression impossible : ce jeu a un historique d'emprunts, conservé même quand le jeu est rendu.");
 });
 
+test("searching sends the filters to the API", async () => {
+  const app = await mountApp({ "GET /games": [catan] });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+  app.type(app.$("#search-form").elements.q, "cat");
+  await waitFor(() => app.calls.some((call) => call.search === "?q=cat"), "les filtres envoyés");
+});
+
+test("a search without result shows its own message", async () => {
+  const app = await mountApp({ "GET /games": [catan], "GET /games?q=zzz": [] });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+  app.type(app.$("#search-form").elements.q, "zzz");
+  await waitFor(() => !app.$("#games-no-result").hidden, "le message aucun résultat");
+});
+
 // --- Emprunts
 
 test("borrowing a game sends the game and the chosen member", async () => {

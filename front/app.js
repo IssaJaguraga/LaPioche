@@ -92,10 +92,37 @@ window.addEventListener("hashchange", refresh);
 // --- Jeux ------------------------------------------------------------------
 
 async function loadGames() {
-  const games = await api.listGames();
-  $("#games-empty").hidden = games.length > 0;
+  const filters = searchFilters();
+  const games = await api.listGames(filters);
+  const searching = Object.keys(filters).length > 0;
+  $("#games-empty").hidden = games.length > 0 || searching;
+  $("#games-no-result").hidden = games.length > 0 || !searching;
   $("#games-list").replaceChildren(...games.map(gameCard));
 }
+
+const searchForm = $("#search-form");
+
+function searchFilters() {
+  const filters = {};
+  const q = searchForm.elements.q.value.trim();
+  if (q) {
+    filters.q = q;
+  }
+  for (const name of ["players", "maxDuration"]) {
+    const value = Number(searchForm.elements[name].value);
+    if (Number.isInteger(value) && value > 0) {
+      filters[name] = value;
+    }
+  }
+  return filters;
+}
+
+searchForm.addEventListener("input", () => run(loadGames));
+
+$("#reset-search").addEventListener("click", () => {
+  searchForm.reset();
+  run(loadGames);
+});
 
 function gameCard(game) {
   const players =
