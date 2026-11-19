@@ -97,6 +97,15 @@ test("a search without result shows its own message", async () => {
   await waitFor(() => !app.$("#games-no-result").hidden, "le message aucun résultat");
 });
 
+test("the available filter is sent and combines with the search", async () => {
+  const app = await mountApp({ "GET /games": [catan] });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+  const form = app.$("#search-form");
+  form.elements.q.value = "cat";
+  form.elements.available.click();
+  await waitFor(() => app.calls.some((call) => call.search === "?q=cat&available=true"), "les filtres envoyés");
+});
+
 // --- Emprunts
 
 test("borrowing a game sends the game and the chosen member", async () => {

@@ -114,6 +114,9 @@ function searchFilters() {
       filters[name] = value;
     }
   }
+  if (searchForm.elements.available.checked) {
+    filters.available = true;
+  }
   return filters;
 }
 
