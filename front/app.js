@@ -106,6 +106,11 @@ function gameCard(game) {
   if (game.isAvailable) {
     actions.append(button("Emprunter", () => openBorrowDialog(game), "primary"));
   }
+  
+  actions.append(
+    button("Modifier", () => openEditGameDialog(game)),
+    button("Supprimer", () => openDeleteGameDialog(game), "danger"),
+  );
 
   return el(
     "li",
@@ -118,21 +123,52 @@ function gameCard(game) {
 
 const gameDialog = $("#game-dialog");
 const gameForm = $("#game-form");
+let editedGame = null;
 
 $("#add-game").addEventListener("click", () => {
+  editedGame = null;
+  $("#game-dialog-title").textContent = "Ajouter un jeu";
   gameForm.reset();
   showFormError(gameDialog, null);
   gameDialog.showModal();
 });
 
-bindSubmit(gameDialog, gameForm, (data) =>
-  api.createGame({
+function openEditGameDialog(game) {
+  editedGame = game;
+  gameForm.elements.title.value = game.title;
+  gameForm.elements.minPlayers.value = game.minPlayers;
+  gameForm.elements.maxPlayers.value = game.maxPlayers;
+  gameForm.elements.durationMinutes.value = game.durationMinutes;
+  $("#game-dialog-title").textContent = `Modifier « ${game.title} »`;
+  showFormError(gameDialog, null);
+  gameDialog.showModal();
+}
+
+bindSubmit(gameDialog, gameForm, (data) => {
+  const game = {
     title: data.get("title").trim(),
     minPlayers: Number(data.get("minPlayers")),
     maxPlayers: Number(data.get("maxPlayers")),
     durationMinutes: Number(data.get("durationMinutes")),
-  }),
-);
+  };
+  if (editedGame) {
+    return api.updateGame(editedGame.id, game);
+  }
+  return api.createGame(game);
+});
+
+const deleteGameDialog = $("#delete-game-dialog");
+const deleteGameForm = $("#delete-game-form");
+let deletedGame = null;
+
+function openDeleteGameDialog(game) {
+  deletedGame = game;
+  $("#delete-game-title").textContent = `Supprimer « ${game.title} » ?`;
+  showFormError(deleteGameDialog, null);
+  deleteGameDialog.showModal();
+}
+
+bindSubmit(deleteGameDialog, deleteGameForm, () => api.deleteGame(deletedGame.id));
 
 // --- Emprunts --------------------------------------------------------------
 

@@ -65,6 +65,24 @@ test("a validation error is shown in French and the dialog stays open", async ()
   assertTrue(app.$("#game-dialog").open, "la boîte devrait rester ouverte");
 });
 
+test("editing a game sends the prefilled form with a PUT", async () => {
+  const app = await mountApp({ "GET /games": [catan], "PUT /games/g1": [200, catan] });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+  app.click("Modifier", cardOf(app, "Catan"));
+  app.$("#game-form").requestSubmit();
+  await waitFor(() => app.calls.some((call) => call.method === "PUT" && call.path === "/games/g1"), "l'appel PUT");
+  assertEqual(app.calls.find((call) => call.method === "PUT").body, { title: "Catan", minPlayers: 3, maxPlayers: 4, durationMinutes: 90 });
+});
+
+test("a refused deletion is shown in French", async () => {
+  const app = await mountApp({ "GET /games": [catan], "DELETE /games/g1": [409, { error: true, reason: "A game with loans cannot be deleted" }] });
+  await waitFor(() => app.$$("#games-list .card").length === 1);
+  app.click("Supprimer", cardOf(app, "Catan"));
+  app.$("#delete-game-form").requestSubmit();
+  await waitFor(() => !app.$("#delete-game-dialog .form-error").hidden, "le message d'erreur");
+  assertEqual(app.$("#delete-game-dialog .form-error").textContent, "Suppression impossible : ce jeu a un historique d'emprunts, conservé même quand le jeu est rendu.");
+});
+
 // --- Emprunts
 
 test("borrowing a game sends the game and the chosen member", async () => {

@@ -41,6 +41,21 @@ test("createGame sends a JSON POST", async () => {
   assertEqual(created.id, "1");
 });
 
+test("updateGame sends a JSON PUT to the game", async () => {
+  const { fetch, calls } = fakeApi({ "PUT /games/g1": [200, { id: "g1", title: "Catan 2" }] });
+  const game = { title: "Catan 2", minPlayers: 2, maxPlayers: 5, durationMinutes: 60 };
+  const updated = await withFakeFetch(fetch, () => api.updateGame("g1", game));
+  assertEqual(`${calls[0].method} ${calls[0].path}`, "PUT /games/g1");
+  assertEqual(calls[0].body, game);
+  assertEqual(updated.title, "Catan 2");
+});
+
+test("deleteGame calls DELETE on the game", async () => {
+  const { fetch, calls } = fakeApi({ "DELETE /games/g1": [204] });
+  await withFakeFetch(fetch, () => api.deleteGame("g1"));
+  assertEqual(`${calls[0].method} ${calls[0].path}`, "DELETE /games/g1");
+});
+
 test("borrow sends the game and the member", async () => {
   const { fetch, calls } = fakeApi({ "POST /loans": [201, { id: "l1" }] });
   await withFakeFetch(fetch, () => api.borrow("g1", "m1"));
