@@ -105,6 +105,8 @@ function gameCard(game) {
   const actions = el("div", { class: "actions" });
   if (game.isAvailable) {
     actions.append(button("Emprunter", () => openBorrowDialog(game), "primary"));
+  } else {
+    actions.append(button("Rendre", () => returnGame(game), "primary"));
   }
   
   actions.append(
@@ -197,6 +199,22 @@ bindSubmit(borrowDialog, borrowForm, async (data) => {
   const loan = await api.borrow(borrowedGame.id, data.get("memberID"));
   toast(`« ${borrowedGame.title} » emprunté, à rendre avant le ${formatDate(loan.dueAt)}.`);
 });
+
+async function returnGame(game) {
+  await run(async () => {
+    const members = await api.listMembers();
+    for (const member of members) {
+      const loans = await api.listMemberLoans(member.id);
+      const loan = loans.find((loan) => loan.gameID === game.id && !loan.returnedAt);
+      if (loan) {
+        await api.returnLoan(loan.id);
+        toast(`« ${game.title} » rendu.`);
+        await refresh();
+        return;
+      }
+    }
+  });
+}
 
 // --- Adhérent·es -----------------------------------------------------------
 
